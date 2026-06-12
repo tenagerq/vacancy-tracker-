@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Трекер вакансий</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #fff; --border: #e2e0d8; --border-hover: #c8c5bb;
+    --text: #1a1917; --muted: #6b6a65; --hint: #a09e98;
+    --accent: #2d5be3; --radius: 10px; --radius-lg: 14px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 32px 16px 64px; }
+  .container { max-width: 680px; margin: 0 auto; }
+
+  .site-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 28px; }
+  .site-header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  .site-header span { font-size: 13px; color: var(--muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-size: 26px; font-weight: 600; letter-spacing: -1px; }
+
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+  .form-card h2 { font-size: 14px; font-weight: 500; color: var(--muted); margin-bottom: 14px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input, .field select {
+    height: 38px; border: 1px solid var(--border); border-radius: 8px;
+    padding: 0 11px; font-size: 14px; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--hint); }
+  .form-bottom { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: flex-end; }
+  .btn-primary {
+    height: 38px; padding: 0 20px; background: var(--accent); color: #fff;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 500;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 14px; }
+  .filters input {
+    flex: 1; height: 36px; border: 1px solid var(--border); border-radius: 8px;
+    padding: 0 11px; font-size: 13px; color: var(--text); background: var(--surface); outline: none;
+  }
+  .filters input:focus { border-color: var(--accent); }
+  .filters select { height: 36px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 13px; color: var(--text); background: var(--surface); outline: none; cursor: pointer; }
+
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .vcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: border-color 0.15s; }
+  .vcard:hover { border-color: var(--border-hover); }
+  .vcard-body { flex: 1; min-width: 0; }
+  .vcard-company { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vcard-position { font-size: 13px; color: var(--muted); margin-top: 1px; }
+  .vcard-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .vcard-date { font-size: 12px; color: var(--hint); }
+
+  .badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 100px; }
+  .b-saved     { background: #f0ede6; color: #5a5750; }
+  .b-applied   { background: #ddeeff; color: #1a4fa0; }
+  .b-interview { background: #ede8fe; color: #4a33a8; }
+  .b-offer     { background: #ddf5e4; color: #1a6636; }
+  .b-rejected  { background: #fde8e8; color: #8f1f1f; }
+  .b-other     { background: #fef3dd; color: #7a4f0a; }
+
+  .btn-del { background: none; border: none; cursor: pointer; padding: 6px; color: var(--hint); border-radius: 8px; font-size: 18px; line-height: 1; transition: color 0.15s, background 0.15s; flex-shrink: 0; }
+  .btn-del:hover { color: #c0392b; background: #fde8e8; }
+
+  .empty { text-align: center; padding: 48px 16px; color: var(--muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; display: block; margin-bottom: 10px; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1a1917; color: #fff; font-size: 13px; padding: 10px 18px; border-radius: 100px; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .stat-value { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="site-header">
+    <h1>📋 Трекер вакансий</h1>
+    <span id="subtitle">Загрузка…</span>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Всего</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat"><div class="stat-label">Интервью</div><div class="stat-value" id="s-interview">—</div></div>
+    <div class="stat"><div class="stat-label">Оффер</div><div class="stat-value" id="s-offer">—</div></div>
+  </div>
+
+  <div class="form-card">
+    <h2>Добавить вакансию</h2>
+    <div class="form-grid">
+      <div class="field"><label for="inp-company">Компания</label><input id="inp-company" type="text" placeholder="Google, Яндекс…"></div>
+      <div class="field"><label for="inp-position">Должность</label><input id="inp-position" type="text" placeholder="Frontend developer…"></div>
+    </div>
+    <div class="form-bottom">
+      <div class="field">
+        <label for="inp-status">Статус</label>
+        <select id="inp-status">
+          <option value="Saved">💾 Сохранено</option>
+          <option value="Applied" selected>📨 Откликнулся</option>
+          <option value="Interview">🗣 Интервью</option>
+          <option value="Offer">🎉 Оффер</option>
+          <option value="Rejected">❌ Отказ</option>
+          <option value="Other">📌 Другое</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="btn-add" onclick="addVacancy()">Добавить</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="search" placeholder="Поиск…" oninput="render()">
+    <select id="filter-status" onchange="render()">
+      <option value="">Все статусы</option>
+      <option value="Saved">Сохранено</option>
+      <option value="Applied">Откликнулся</option>
+      <option value="Interview">Интервью</option>
+      <option value="Offer">Оффер</option>
+      <option value="Rejected">Отказ</option>
+      <option value="Other">Другое</option>
+    </select>
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let vacancies = [];
+
+const STATUS_LABELS = { Saved:'Сохранено', Applied:'Откликнулся', Interview:'Интервью', Offer:'Оффер', Rejected:'Отказ', Other:'Другое' };
+const STATUS_CLASS  = { Saved:'b-saved', Applied:'b-applied', Interview:'b-interview', Offer:'b-offer', Rejected:'b-rejected', Other:'b-other' };
+
+async function loadVacancies() {
+  const res = await fetch('/api/vacancies');
+  vacancies = await res.json();
+  render();
+}
+
+async function addVacancy() {
+  const company  = document.getElementById('inp-company').value.trim();
+  const position = document.getElementById('inp-position').value.trim();
+  const status   = document.getElementById('inp-status').value;
+  if (!company || !position) { showToast('Заполните компанию и должность'); return; }
+
+  const btn = document.getElementById('btn-add');
+  btn.disabled = true;
+  const res = await fetch('/api/vacancies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ company, position, status })
+  });
+  btn.disabled = false;
+
+  if (!res.ok) { showToast('Ошибка при добавлении'); return; }
+  const v = await res.json();
+  vacancies.unshift(v);
+  document.getElementById('inp-company').value = '';
+  document.getElementById('inp-position').value = '';
+  document.getElementById('inp-company').focus();
+  render();
+  showToast('Вакансия добавлена');
+}
+
+async function deleteVacancy(id) {
+  vacancies = vacancies.filter(v => v.id !== id);
+  render();
+  await fetch(`/api/vacancies/${id}`, { method: 'DELETE' });
+  showToast('Удалено');
+}
+
+function render() {
+  const q  = document.getElementById('search').value.toLowerCase();
+  const sf = document.getElementById('filter-status').value;
+  const filtered = vacancies.filter(v => {
+    const match = !q || (v.company + ' ' + v.position).toLowerCase().includes(q);
+    return match && (!sf || v.status === sf);
+  });
+
+  const list = document.getElementById('list');
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><span class="empty-icon">🗂</span>${vacancies.length ? 'Ничего не найдено' : 'Пока нет вакансий — добавьте первую'}</div>`;
+  } else {
+    list.innerHTML = filtered.map(v => `
+      <div class="vcard">
+        <div class="vcard-body">
+          <div class="vcard-company">${esc(v.company)}</div>
+          <div class="vcard-position">${esc(v.position)}</div>
+          <div class="vcard-meta">
+            <span class="vcard-date">${esc(v.date)}</span>
+            <span class="badge ${STATUS_CLASS[v.status]||'b-other'}">${STATUS_LABELS[v.status]||v.status}</span>
+          </div>
+        </div>
+        <button class="btn-del" onclick="deleteVacancy(${v.id})" title="Удалить">✕</button>
+      </div>`).join('');
+  }
+
+  document.getElementById('s-total').textContent     = vacancies.length;
+  document.getElementById('s-interview').textContent = vacancies.filter(v => v.status === 'Interview').length;
+  document.getElementById('s-offer').textContent     = vacancies.filter(v => v.status === 'Offer').length;
+  const n = vacancies.length;
+  document.getElementById('subtitle').textContent = n ? `${n} ${plural(n,'вакансия','вакансии','вакансий')}` : 'Список пуст';
+}
+
+function plural(n, one, few, many) {
+  const m = n % 100, r = n % 10;
+  if (m >= 11 && m <= 19) return many;
+  if (r === 1) return one;
+  if (r >= 2 && r <= 4) return few;
+  return many;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && ['inp-company','inp-position'].includes(e.target.id)) addVacancy();
+});
+
+loadVacancies();
+</script>
+</body>
+</html>
